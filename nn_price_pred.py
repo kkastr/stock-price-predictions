@@ -8,7 +8,6 @@ import torch
 import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
 
-plt.style.use('seaborn-talk')
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -68,10 +67,10 @@ if not os.path.isdir('./plots/'):
     os.system('mkdir -p ./plots/')
 
 
-start_date = '2017-04-27'
-end_date = '2022-04-27'
+start_date = '2017-05-10'
+end_date = '2022-05-10'
 
-ticker = 'AMZN'
+ticker = 'GOOG'
 
 filename = f'{ticker}_stock_prices_5Y.csv'
 
@@ -129,7 +128,7 @@ num_epochs = 150
 
 loss = training(num_epochs, model, optim, lossfn, train_input, train_target)
 
-nfuture = 30
+nfuture = 14
 
 model.eval()
 
@@ -139,6 +138,9 @@ with torch.no_grad():
 
 pred_rescaled = scaler.inverse_transform(nn_prediction)
 
+plt.rc('font', family='serif', size=20)
+plt.rc('lines', linewidth=4, aa=True)
+
 fig, ax = plt.subplots(1, 2, figsize=(14, 6))
 
 title = f'${ticker} daily value prediction'
@@ -146,7 +148,7 @@ title = f'${ticker} daily value prediction'
 fig.suptitle(title)
 
 ax[0].plot(np.arange(num_epochs), loss)
-ax[0].set_ylabel('Loss')
+ax[0].set_ylabel('MSE Loss')
 ax[0].set_xlabel('Epoch')
 
 ax[1].plot(np.arange(ntest), close_prices[ntrain:], label='real')
@@ -157,4 +159,4 @@ ax[1].set_xlabel('Days')
 
 plt.legend()
 plt.tight_layout()
-plt.savefig(f'./plots/{ticker}_pred.png', dpi=300)
+plt.savefig(f'./plots/{ticker}_pred.png', dpi=600)
