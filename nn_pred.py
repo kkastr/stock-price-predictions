@@ -60,7 +60,7 @@ def training(num_epochs, model, optimiser, loss_fn, train_input):
     loss_out = []
     for epoch in range(num_epochs):
         optimiser.zero_grad()
-        res = model(train_input, batch_size=16)
+        res = model(train_input, batch_size=4)
         loss = loss_fn(res, train_input)
         loss.backward()
         optimiser.step()
@@ -91,7 +91,7 @@ def main(ticker, time_period):
     scaler = MinMaxScaler()
 
     train_data = scaler.fit_transform(train_data)
-    test_data = scaler.fit_transform(test_data)
+    test_data = scaler.transform(test_data)
 
     train_input = torch.from_numpy(train_data).float().to(device)
 
@@ -109,7 +109,7 @@ def main(ticker, time_period):
 
     loss = training(num_epochs, model, optim, lossfn, train_input)
 
-    nfuture = 14
+    nfuture = 150
 
     model.eval()
 
@@ -132,7 +132,7 @@ def main(ticker, time_period):
     ax[0].set_ylabel("MSE Loss")
     ax[0].set_xlabel("Epoch")
 
-    ax[1].plot(np.arange(ntest), close_prices[ntrain:], label="real")
+    ax[1].plot(np.arange(ntest), close_prices[ntrain:], label="actual")
     ax[1].plot(np.arange(ntest), pred_rescaled[:ntest], label="predicted")
     ax[1].plot(np.arange(ntest, ntest + nfuture), pred_rescaled[ntest:], label="future prediction")
     ax[1].set_ylabel("Value (USD)")
@@ -140,7 +140,8 @@ def main(ticker, time_period):
 
     plt.legend()
     plt.tight_layout()
-    plt.savefig(f"./plots/{ticker}_pred.png", dpi=600)
+    plt.show()
+    # plt.savefig(f"./plots/{ticker}_pred.png", dpi=600)
 
 
 if __name__ == "__main__":

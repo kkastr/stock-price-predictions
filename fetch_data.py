@@ -63,7 +63,7 @@ def getData(ticker, start_date, end_date, update):
 
     period = Interval.fmt_str(duration.days)
 
-    filename = f"{period}_{ticker}_stock_prices_.csv"
+    filename = f"{period}_{ticker}_stock_prices.csv"
 
     if update or not os.path.isfile(f"./data/{filename}"):
 
