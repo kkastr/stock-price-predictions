@@ -9,9 +9,9 @@ In the present example, LSTM networks are used to fit the time series data of st
 
 As can be seen below, the model does a good job at predicting the testing data, which is fantastic given that there is only one parameter. Interestingly, the model performs well even though the current financial year (2022) has been rather unprecedently tumultuous for the stock market as a whole, but especially the tech sector.
 
-![amzn_prediction](./plots/AMZN_pred.png)
+![aapl_prediction](./plots/AAPL_pred.png)
 
-![msft_prediction](./plots/MSFT_pred.png)
+![goog_prediction](./plots/GOOG_pred.png)
 
 ## Current limitations
 
