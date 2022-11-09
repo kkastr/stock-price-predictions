@@ -7,9 +7,12 @@ import sqlite3 as sql
 import torch.nn as nn
 from pathlib import Path
 import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
 
-parser = argparse.ArgumentParser(description="""Train NN to predict stock prices and plot the result""")
+parser = argparse.ArgumentParser(
+    description="""Train NN to predict stock prices and plot the result"""
+)
 
 parser.add_argument(
     "-ticker", dest="ticker", type=str, help="The ticker for the security (i.e. GOOG, AMZN, etc)."
@@ -45,9 +48,7 @@ class LSTM(nn.Module):
         for inpt in input_tensor.split(batch_size, dim=0):
 
             ht0, ct0 = self.lstm0(inpt, (ht0, ct0))
-            ht0 = self.dropout(ht0)
             ht1, ct1 = self.lstm1(ht0, (ht1, ct1))
-            ht1 = self.dropout(ht1)
             output = self.linear(ht1)
             predictions.append(output)
 
@@ -62,7 +63,9 @@ class LSTM(nn.Module):
         return predictions_tensor
 
 
-def training(num_epochs, model, optimiser, loss_fn, train_input, train_target, val_input, val_target):
+def training(
+    num_epochs, model, optimiser, loss_fn, train_input, train_target, val_input, val_target
+):
     loss_out = []
     val_loss = []
     for epoch in range(num_epochs):
@@ -92,30 +95,30 @@ def transform_to_lagged_seqs(arr, seq_len):
     y = np.zeros((xdim, seq_len))
 
     for i in range(xdim):
-        x[i, :] = arr[i:i + seq_len].flatten()
-        y[i, :] = arr[i + 1:i + seq_len + 1].flatten()
+        x[i, :] = arr[i : i + seq_len].flatten()
+        y[i, :] = arr[i + 1 : i + seq_len + 1].flatten()
 
     xret = torch.from_numpy(x.reshape(-1, seq_len)).float().to(device)
     yret = torch.from_numpy(y.reshape(-1, seq_len)).float().to(device)
 
     return xret, yret
 
-# def clean_nans(k):
-#     for i in k.columns:
-
 
 def add_to_database(name, train_loss, val_loss, actual, predicted, forecast):
     if Path("./database.json").is_file():
         df = pd.read_json("database.json")
+        if name in df.columns:
+            df.drop(columns=[name], inplace=True)
     else:
         df = pd.DataFrame()
 
     nf = pd.concat([train_loss, val_loss, actual, predicted, forecast], axis=1)
-    nf['ticker'] = [name] * len(nf)
-    gb = nf.groupby('ticker').agg(lambda x: x.dropna().to_dict())
+    nf["ticker"] = [name] * len(nf)
+    gb = nf.groupby("ticker").agg(lambda x: x.dropna().to_dict())
 
     if not df.empty:
         stacked = pd.concat([df.T, gb], axis=0)
+
         stacked.T.to_json("database.json")
     else:
         gb.T.to_json("database.json")
@@ -143,18 +146,14 @@ def main(ticker, time_period):
     ntest = trading_days_per_year
 
     train_data = close_prices[:ntrain].reshape(-1, 1)
-    val_data = close_prices[ntrain:ntrain + nval].reshape(-1, 1)
-    test_data = close_prices[ntrain + nval:].reshape(-1, 1)
+    val_data = close_prices[ntrain : ntrain + nval].reshape(-1, 1)
+    test_data = close_prices[ntrain + nval :].reshape(-1, 1)
 
     scaler = MinMaxScaler()
 
     train_data = scaler.fit_transform(train_data)
     val_data = scaler.fit_transform(val_data)
     test_data = scaler.fit_transform(test_data)
-
-    # xtrain, ytrain = transform_to_lagged_seqs(train_data, 1)
-    # xval, yval = transform_to_lagged_seqs(val_data, 1)
-    # xtest, ytest = transform_to_lagged_seqs(test_data, 1)
 
     xtrain, ytrain = transform_to_lagged_seqs(train_data, 1)
     xval, yval = transform_to_lagged_seqs(val_data, 1)
@@ -169,10 +168,9 @@ def main(ticker, time_period):
     optim = torch.optim.Adam(model.parameters(), lr=2e-2)
 
     num_epochs = 300
+    nfuture = 20
 
     train_loss, val_loss = training(num_epochs, model, optim, lossfn, xtrain, ytrain, xval, yval)
-
-    nfuture = 20
 
     model.eval()
 
@@ -182,52 +180,52 @@ def main(ticker, time_period):
 
     pred_rescaled = scaler.inverse_transform(nn_prediction)
 
-    rmse = np.sqrt(np.mean(pred_rescaled[:-nfuture].flatten() - close_prices[ntrain + nval:-1])**2)
+    rmse = np.sqrt(
+        mean_squared_error(close_prices[ntrain + nval : -1], pred_rescaled[:-nfuture].flatten())
+    )
 
-    print(f'\n RMSE = {rmse}')
+    print(f"\n RMSE = {rmse}")
 
-    dloss = pd.DataFrame(train_loss, columns=['train_loss'])
-    dvloss = pd.DataFrame(val_loss, columns=['val_loss'])
-    dactual = pd.DataFrame(close_prices[ntrain + nval:], columns=['actual'])
-    dpred = pd.DataFrame(pred_rescaled[:ntest].flatten(), columns=['predicted'])
+    dloss = pd.DataFrame(train_loss, columns=["train_loss"])
+    dvloss = pd.DataFrame(val_loss, columns=["val_loss"])
+    dactual = pd.DataFrame(close_prices[ntrain + nval :], columns=["actual"])
+    dpred = pd.DataFrame(pred_rescaled[:ntest].flatten(), columns=["predicted"])
 
-    dfore = pd.DataFrame(pred_rescaled[ntest - 1:].flatten().T, index=np.arange(ntest, ntest + nfuture), columns=['forecast'])
+    dfore = pd.DataFrame(
+        pred_rescaled[ntest - 1 :].flatten().T,
+        index=np.arange(ntest, ntest + nfuture),
+        columns=["forecast"],
+    )
 
-    # print(dict(enumerate(close_prices[ntrain + nval:])))
     add_to_database(ticker, dloss, dvloss, dactual, dpred, dfore)
 
-    # pd.DataFrame(np.column_stack((train_loss, val_loss)), columns=['train_loss', 'val_loss']).to_json('./mse_loss.json')
-    # pd.DataFrame(close_prices[ntrain + nval:], columns=['actual']).to_json('./actual_values.json')
-    # pd.DataFrame(pred_rescaled[:ntest].flatten(), columns=['predicted']).to_json('./predicted_values.json')
-    # pd.DataFrame(pred_rescaled[ntest - 1:].flatten().T, index=np.arange(ntest, ntest + nfuture), columns=['forecast']).to_json('./forecast_values.json')
+    plt.rc("font", family="serif", size=16)
+    plt.rc("lines", linewidth=4, aa=True)
 
+    fig, ax = plt.subplots(1, 2, figsize=(14, 6))
 
+    title = f"${ticker} daily value prediction"
 
+    fig.suptitle(title)
 
-    # plt.rc("font", family="serif", size=20)
-    # plt.rc("lines", linewidth=4, aa=True)
+    ax[0].plot(np.arange(num_epochs), train_loss, label="Training")
+    ax[0].plot(np.arange(num_epochs), val_loss, label="Validation")
+    ax[0].set_ylabel("MSE Loss")
+    ax[0].set_xlabel("Epoch")
+    ax[0].legend(title=f"RMSE={rmse:.3f}", title_fontsize=14, fontsize=14, frameon=False)
 
-    # fig, ax = plt.subplots(1, 2, figsize=(14, 6))
+    ax[1].plot(close_prices[ntrain + nval :], label="actual")
+    ax[1].plot(pred_rescaled[:ntest], label="predicted")
+    ax[1].plot(
+        np.arange(ntest, ntest + nfuture), pred_rescaled[ntest - 1 :], label="forecast"
+    )
+    ax[1].set_ylabel("Value (USD)")
+    ax[1].set_xlabel("Days")
+    ax[1].legend(fontsize=14, frameon=False)
 
-    # title = f"${ticker} daily value prediction"
-
-    # fig.suptitle(title)
-
-    # ax[0].plot(np.arange(num_epochs), train_loss, label='Training')
-    # ax[0].plot(np.arange(num_epochs), val_loss, label='Validation')
-    # ax[0].set_ylabel("MSE Loss")
-    # ax[0].set_xlabel("Epoch")
-    # ax[0].legend()
-    # ax[1].plot(close_prices[ntrain + nval:], label="real")
-    # ax[1].plot(pred_rescaled[:ntest], label="predicted")
-    # ax[1].plot(np.arange(ntest, ntest + nfuture), pred_rescaled[ntest - 1:], label="future prediction")
-    # ax[1].set_ylabel("Value (USD)")
-    # ax[1].set_xlabel("Days")
-
-    # plt.legend()
-    # plt.tight_layout()
-    # plt.show()
-    # plt.savefig(f"./plots/{ticker}_pred.png", dpi=600)
+    plt.tight_layout()
+    plt.savefig(f"./plots/{ticker}_pred.png", dpi=600)
+    plt.show()
 
 
 if __name__ == "__main__":
