@@ -119,9 +119,9 @@ def add_to_database(name, train_loss, val_loss, actual, predicted, forecast):
     if not df.empty:
         stacked = pd.concat([df.T, gb], axis=0)
 
-        stacked.T.to_json("database.json")
+        stacked.T.to_json("./data/database.json")
     else:
-        gb.T.to_json("database.json")
+        gb.T.to_json("./data/database.json")
 
 
 def main(ticker, time_period):
