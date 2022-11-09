@@ -11,7 +11,7 @@ As can be seen below, the model does a good job at predicting the testing data, 
 
 ![aapl_prediction](./plots/AAPL_pred.png)
 
-![goog_prediction](./plots/GOOG_pred.png)
+![amzn_prediction](./plots/AMZN_pred.png)
 
 ## Current limitations
 
