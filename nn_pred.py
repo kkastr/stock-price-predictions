@@ -24,6 +24,10 @@ parser.add_argument(
     help="The period of time for the downloaded data: a number suffixed d, M, or Y.",
 )
 
+parser.add_argument(
+    "--plot", dest="vis", action="store_true", default=False, help="Plot the predictions"
+)
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -124,10 +128,10 @@ def add_to_database(name, train_loss, val_loss, actual, predicted, forecast):
         gb.T.to_json("./data/database.json")
 
 
-def main(ticker, time_period):
+def TrainModel(ticker, time_period, vis):
 
     filename = f"{time_period}_{ticker}_stock_prices.csv"
-
+    print(filename)
     try:
         df = pd.read_csv(f"./data/{filename}")
     except FileNotFoundError:
@@ -199,37 +203,38 @@ def main(ticker, time_period):
 
     add_to_database(ticker, dloss, dvloss, dactual, dpred, dfore)
 
-    plt.rc("font", family="serif", size=16)
-    plt.rc("lines", linewidth=4, aa=True)
+    if vis:
+        plt.rc("font", family="serif", size=16)
+        plt.rc("lines", linewidth=4, aa=True)
 
-    fig, ax = plt.subplots(1, 2, figsize=(14, 6))
+        fig, ax = plt.subplots(1, 2, figsize=(14, 6))
 
-    title = f"${ticker} daily value prediction"
+        title = f"${ticker} daily value prediction"
 
-    fig.suptitle(title)
+        fig.suptitle(title)
 
-    ax[0].plot(np.arange(num_epochs), train_loss, label="Training")
-    ax[0].plot(np.arange(num_epochs), val_loss, label="Validation")
-    ax[0].set_ylabel("MSE Loss")
-    ax[0].set_xlabel("Epoch")
-    ax[0].legend(title=f"RMSE={rmse:.3f}", title_fontsize=14, fontsize=14, frameon=False)
+        ax[0].plot(np.arange(num_epochs), train_loss, label="Training")
+        ax[0].plot(np.arange(num_epochs), val_loss, label="Validation")
+        ax[0].set_ylabel("MSE Loss")
+        ax[0].set_xlabel("Epoch")
+        ax[0].legend(title=f"RMSE={rmse:.3f}", title_fontsize=14, fontsize=14, frameon=False)
 
-    ax[1].plot(close_prices[ntrain + nval :], label="actual")
-    ax[1].plot(pred_rescaled[:ntest], label="predicted")
-    ax[1].plot(
-        np.arange(ntest, ntest + nfuture), pred_rescaled[ntest - 1 :], label="forecast"
-    )
-    ax[1].set_ylabel("Value (USD)")
-    ax[1].set_xlabel("Days")
-    ax[1].legend(fontsize=14, frameon=False)
+        ax[1].plot(close_prices[ntrain + nval :], label="actual")
+        ax[1].plot(pred_rescaled[:ntest], label="predicted")
+        ax[1].plot(
+            np.arange(ntest, ntest + nfuture), pred_rescaled[ntest - 1 :], label="forecast"
+        )
+        ax[1].set_ylabel("Value (USD)")
+        ax[1].set_xlabel("Days")
+        ax[1].legend(fontsize=14, frameon=False)
 
-    plt.tight_layout()
-    plt.savefig(f"./plots/{ticker}_pred.png", dpi=600)
-    plt.show()
+        plt.tight_layout()
+        plt.savefig(f"./plots/{ticker}_pred.png", dpi=600)
+        plt.show()
 
 
 if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(**vars(args))
+    TrainModel(**vars(args))
